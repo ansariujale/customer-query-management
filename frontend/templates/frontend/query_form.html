@@ -1,0 +1,105 @@
+{% extends 'frontend/base.html' %}
+
+{% block title %}{% if pk %}Edit Query{% else %}New Query{% endif %}{% endblock %}
+
+{% block content %}
+<h2>{% if pk %}Edit Query #{{ pk }}{% else %}Add New Query{% endif %}</h2>
+
+<div id="message" class="message"></div>
+
+<form id="query-form">
+    <label for="customer_name">Customer Name *</label>
+    <input type="text" id="customer_name" class="full" required>
+
+    <label for="email">Email *</label>
+    <input type="email" id="email" class="full" required>
+
+    <label for="subject">Subject *</label>
+    <input type="text" id="subject" class="full" required>
+
+    <label for="description">Description *</label>
+    <textarea id="description" class="full" required></textarea>
+
+    <label for="category">Category</label>
+    <select id="category">
+        <option>General</option>
+        <option>Technical</option>
+        <option>Billing</option>
+        <option>Account Related</option>
+    </select>
+
+    <label for="priority">Priority</label>
+    <select id="priority">
+        <option>Medium</option>
+        <option>Low</option>
+        <option>High</option>
+    </select>
+
+    <label for="status">Status</label>
+    <select id="status">
+        <option>Pending</option>
+        <option>In Progress</option>
+        <option>Resolved</option>
+    </select>
+
+    <p class="muted">Tip: you can leave category and priority as they are and use "Run AI Analysis" on the next page.</p>
+
+    <button type="submit" id="save-btn">Save</button>
+    <a href="{% if pk %}/queries/{{ pk }}/{% else %}/queries/{% endif %}" class="btn btn-grey">Cancel</a>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    requireLogin();
+
+    // pk comes from django, it is empty when adding a new query
+    const queryId = '{{ pk|default:"" }}';
+    const fields = ['customer_name', 'email', 'subject', 'description', 'category', 'priority', 'status'];
+
+    // in edit mode, fill the form with existing values
+    async function loadQuery() {
+        const result = await api('/api/queries/' + queryId + '/');
+        if (!result) return;
+        if (!result.ok) {
+            showMessage('Query not found.', 'error');
+            return;
+        }
+        fields.forEach(function (f) {
+            document.getElementById(f).value = result.data[f];
+        });
+    }
+
+    if (queryId && getToken()) {
+        loadQuery();
+    }
+
+    document.getElementById('query-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const data = {};
+        fields.forEach(function (f) {
+            data[f] = document.getElementById(f).value;
+        });
+
+        const btn = document.getElementById('save-btn');
+        btn.disabled = true;
+
+        let result;
+        if (queryId) {
+            result = await api('/api/queries/' + queryId + '/', 'PUT', data);
+        } else {
+            result = await api('/api/queries/', 'POST', data);
+        }
+
+        btn.disabled = false;
+        if (!result) return;
+
+        if (result.ok) {
+            window.location.href = '/queries/' + result.data.id + '/';
+        } else {
+            showMessage(formatErrors(result.data), 'error');
+        }
+    });
+</script>
+{% endblock %}

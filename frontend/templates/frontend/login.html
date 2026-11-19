@@ -1,0 +1,49 @@
+{% extends 'frontend/base.html' %}
+
+{% block title %}Login{% endblock %}
+{% block nav %}{% endblock %}
+{% block container_class %}small-box{% endblock %}
+
+{% block content %}
+<h2>Login</h2>
+
+<div id="message" class="message"></div>
+
+<form id="login-form">
+    <label for="username">Username</label>
+    <input type="text" id="username" class="full" required>
+
+    <label for="password">Password</label>
+    <input type="password" id="password" class="full" required>
+
+    <br><br>
+    <button type="submit">Login</button>
+</form>
+
+<p>Don't have an account? <a href="/register/">Register here</a></p>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // already logged in, no need to show login page
+    if (getToken()) {
+        window.location.href = '/queries/';
+    }
+
+    document.getElementById('login-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const result = await api('/api/login/', 'POST', {
+            username: document.getElementById('username').value,
+            password: document.getElementById('password').value,
+        });
+
+        if (result.ok) {
+            saveLogin(result.data.token, result.data.user.username);
+            window.location.href = '/queries/';
+        } else {
+            showMessage(formatErrors(result.data), 'error');
+        }
+    });
+</script>
+{% endblock %}

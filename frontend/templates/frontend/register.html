@@ -1,0 +1,54 @@
+{% extends 'frontend/base.html' %}
+
+{% block title %}Register{% endblock %}
+{% block nav %}{% endblock %}
+{% block container_class %}small-box{% endblock %}
+
+{% block content %}
+<h2>Create Account</h2>
+
+<div id="message" class="message"></div>
+
+<form id="register-form">
+    <label for="username">Username</label>
+    <input type="text" id="username" class="full" required>
+
+    <label for="email">Email</label>
+    <input type="email" id="email" class="full" required>
+
+    <label for="password">Password</label>
+    <input type="password" id="password" class="full" required>
+    <span class="muted">At least 8 characters, not only numbers</span>
+
+    <label for="confirm_password">Confirm Password</label>
+    <input type="password" id="confirm_password" class="full" required>
+
+    <br><br>
+    <button type="submit">Register</button>
+</form>
+
+<p>Already registered? <a href="/login/">Login here</a></p>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.getElementById('register-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const result = await api('/api/register/', 'POST', {
+            username: document.getElementById('username').value,
+            email: document.getElementById('email').value,
+            password: document.getElementById('password').value,
+            confirm_password: document.getElementById('confirm_password').value,
+        });
+
+        if (result.ok) {
+            // register api already returns a token so we can log the user in directly
+            saveLogin(result.data.token, result.data.user.username);
+            window.location.href = '/queries/';
+        } else {
+            showMessage(formatErrors(result.data), 'error');
+        }
+    });
+</script>
+{% endblock %}

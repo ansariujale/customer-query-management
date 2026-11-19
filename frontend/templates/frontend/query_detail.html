@@ -1,0 +1,139 @@
+{% extends 'frontend/base.html' %}
+
+{% block title %}Query #{{ pk }}{% endblock %}
+
+{% block content %}
+<a href="/queries/">&laquo; Back to all queries</a>
+
+<h2>Query #{{ pk }}</h2>
+
+<div id="message" class="message"></div>
+
+<table class="detail-table">
+    <tr><th>Customer Name</th><td id="customer_name"></td></tr>
+    <tr><th>Email</th><td id="email"></td></tr>
+    <tr><th>Subject</th><td id="subject"></td></tr>
+    <tr><th>Description</th><td id="description" class="description"></td></tr>
+    <tr><th>Category</th><td id="category"></td></tr>
+    <tr><th>Priority</th><td id="priority"></td></tr>
+    <tr><th>Status</th><td id="status"></td></tr>
+    <tr><th>Created</th><td id="created_at"></td></tr>
+    <tr><th>Last Updated</th><td id="updated_at"></td></tr>
+</table>
+
+<div class="ai-box">
+    <h3 style="margin-top: 0;">AI Analysis</h3>
+    <p id="ai-response">Not analysed yet.</p>
+    <p class="muted" id="ai-info"></p>
+    <button id="analyze-btn">Run AI Analysis</button>
+</div>
+
+<div class="actions">
+    <b>Change status:</b>
+    <select id="new-status">
+        <option>Pending</option>
+        <option>In Progress</option>
+        <option>Resolved</option>
+    </select>
+    <button id="status-btn">Update Status</button>
+</div>
+
+<div class="actions">
+    <a href="/queries/{{ pk }}/edit/" class="btn">Edit</a>
+    <button id="delete-btn" class="btn-red">Delete</button>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    requireLogin();
+
+    const queryId = '{{ pk }}';
+
+    function showQuery(q) {
+        // textContent is safe, no need to escape here
+        document.getElementById('customer_name').textContent = q.customer_name;
+        document.getElementById('email').textContent = q.email;
+        document.getElementById('subject').textContent = q.subject;
+        document.getElementById('description').textContent = q.description;
+        document.getElementById('category').textContent = q.category;
+        document.getElementById('priority').textContent = q.priority;
+        document.getElementById('priority').className = q.priority;
+        document.getElementById('status').textContent = q.status;
+        document.getElementById('status').className = q.status.replace(' ', '-');
+        document.getElementById('created_at').textContent = formatDate(q.created_at);
+        document.getElementById('updated_at').textContent = formatDate(q.updated_at);
+        document.getElementById('new-status').value = q.status;
+
+        if (q.suggested_response) {
+            document.getElementById('ai-response').textContent = q.suggested_response;
+            let info = 'Analysed on ' + formatDate(q.analysed_at) + ' using ' + q.analysed_by;
+            if (q.analysed_by === 'fallback') {
+                info += ' (AI was not available, keyword rules were used)';
+            }
+            document.getElementById('ai-info').textContent = info;
+            document.getElementById('analyze-btn').textContent = 'Run AI Analysis Again';
+        }
+    }
+
+    async function loadQuery() {
+        const result = await api('/api/queries/' + queryId + '/');
+        if (!result) return;
+        if (result.ok) {
+            showQuery(result.data);
+        } else {
+            showMessage('Query not found.', 'error');
+        }
+    }
+
+    document.getElementById('analyze-btn').addEventListener('click', async function () {
+        const btn = this;
+        btn.disabled = true;
+        btn.textContent = 'Analysing...';
+
+        const result = await api('/api/queries/' + queryId + '/analyze/', 'POST');
+
+        btn.disabled = false;
+        btn.textContent = 'Run AI Analysis';
+        if (!result) return;
+
+        if (result.ok) {
+            showQuery(result.data.query);
+            showMessage('Analysis done. Category and priority were updated.', 'success');
+        } else {
+            showMessage(formatErrors(result.data), 'error');
+        }
+    });
+
+    document.getElementById('status-btn').addEventListener('click', async function () {
+        const newStatus = document.getElementById('new-status').value;
+        const result = await api('/api/queries/' + queryId + '/status/', 'PATCH', {status: newStatus});
+        if (!result) return;
+
+        if (result.ok) {
+            showQuery(result.data);
+            showMessage('Status changed to ' + newStatus + '.', 'success');
+        } else {
+            showMessage(formatErrors(result.data), 'error');
+        }
+    });
+
+    document.getElementById('delete-btn').addEventListener('click', async function () {
+        if (!confirm('Are you sure you want to delete this query?')) {
+            return;
+        }
+        const result = await api('/api/queries/' + queryId + '/', 'DELETE');
+        if (!result) return;
+
+        if (result.ok) {
+            window.location.href = '/queries/';
+        } else {
+            showMessage(formatErrors(result.data), 'error');
+        }
+    });
+
+    if (getToken()) {
+        loadQuery();
+    }
+</script>
+{% endblock %}

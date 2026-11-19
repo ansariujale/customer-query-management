@@ -1,0 +1,160 @@
+{% extends 'frontend/base.html' %}
+
+{% block title %}My Queries{% endblock %}
+
+{% block content %}
+<h2>Dashboard</h2>
+
+<div class="stats" id="stats">Loading...</div>
+
+<a href="/queries/new/" class="btn">+ Add New Query</a>
+
+<form class="filters" id="filter-form">
+    <input type="text" id="search" placeholder="Search name or email">
+
+    <select id="category">
+        <option value="">All categories</option>
+        <option>Technical</option>
+        <option>Billing</option>
+        <option>General</option>
+        <option>Account Related</option>
+    </select>
+
+    <select id="priority">
+        <option value="">All priorities</option>
+        <option>Low</option>
+        <option>Medium</option>
+        <option>High</option>
+    </select>
+
+    <select id="status">
+        <option value="">All status</option>
+        <option>Pending</option>
+        <option>In Progress</option>
+        <option>Resolved</option>
+    </select>
+
+    <button type="submit">Filter</button>
+    <a href="#" id="clear-filters">Clear</a>
+</form>
+
+<div class="table-wrap">
+<table>
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Customer</th>
+            <th>Subject</th>
+            <th>Category</th>
+            <th>Priority</th>
+            <th>Status</th>
+            <th>Created</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody id="query-rows">
+        <tr><td colspan="8">Loading...</td></tr>
+    </tbody>
+</table>
+</div>
+
+<div class="pagination" id="pagination"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    requireLogin();
+
+    let currentPage = 1;
+
+    async function loadDashboard() {
+        const result = await api('/api/dashboard/');
+        if (!result || !result.ok) return;
+
+        const d = result.data;
+        document.getElementById('stats').innerHTML =
+            '<span>Total: <b>' + d.total + '</b></span>' +
+            '<span>Pending: <b>' + d.pending + '</b></span>' +
+            '<span>In Progress: <b>' + d.in_progress + '</b></span>' +
+            '<span>Resolved: <b>' + d.resolved + '</b></span>' +
+            '<span>High Priority: <b>' + d.high_priority + '</b></span>';
+    }
+
+    async function loadQueries(page) {
+        currentPage = page;
+
+        // build url like /api/queries/?page=1&search=abc&status=Pending
+        const params = new URLSearchParams();
+        params.append('page', page);
+
+        const search = document.getElementById('search').value.trim();
+        const category = document.getElementById('category').value;
+        const priority = document.getElementById('priority').value;
+        const status = document.getElementById('status').value;
+
+        if (search) params.append('search', search);
+        if (category) params.append('category', category);
+        if (priority) params.append('priority', priority);
+        if (status) params.append('status', status);
+
+        const result = await api('/api/queries/?' + params.toString());
+        if (!result) return;
+
+        const tbody = document.getElementById('query-rows');
+
+        if (!result.ok) {
+            tbody.innerHTML = '<tr><td colspan="8">Could not load queries.</td></tr>';
+            return;
+        }
+
+        const queries = result.data.results;
+
+        if (queries.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8">No queries found.</td></tr>';
+        } else {
+            let rows = '';
+            queries.forEach(function (q) {
+                rows += '<tr>' +
+                    '<td>' + q.id + '</td>' +
+                    '<td>' + escapeHtml(q.customer_name) + '<br><span class="muted">' + escapeHtml(q.email) + '</span></td>' +
+                    '<td>' + escapeHtml(q.subject) + '</td>' +
+                    '<td>' + q.category + '</td>' +
+                    '<td class="' + q.priority + '">' + q.priority + '</td>' +
+                    '<td class="' + q.status.replace(' ', '-') + '">' + q.status + '</td>' +
+                    '<td>' + formatDate(q.created_at) + '</td>' +
+                    '<td><a href="/queries/' + q.id + '/">View</a></td>' +
+                    '</tr>';
+            });
+            tbody.innerHTML = rows;
+        }
+
+        // pagination (api gives 10 per page)
+        const totalPages = Math.ceil(result.data.count / 10) || 1;
+        let html = '';
+        if (result.data.previous) {
+            html += '<button onclick="loadQueries(' + (page - 1) + ')">&laquo; Prev</button> ';
+        }
+        html += ' Page ' + page + ' of ' + totalPages + ' (' + result.data.count + ' queries) ';
+        if (result.data.next) {
+            html += '<button onclick="loadQueries(' + (page + 1) + ')">Next &raquo;</button>';
+        }
+        document.getElementById('pagination').innerHTML = html;
+    }
+
+    document.getElementById('filter-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+        loadQueries(1);
+    });
+
+    document.getElementById('clear-filters').addEventListener('click', function (e) {
+        e.preventDefault();
+        document.getElementById('filter-form').reset();
+        loadQueries(1);
+    });
+
+    if (getToken()) {
+        loadDashboard();
+        loadQueries(1);
+    }
+</script>
+{% endblock %}
