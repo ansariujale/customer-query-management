@@ -37,6 +37,27 @@ class AuthTests(APITestCase):
         response = self.client.post('/api/register/', data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_password_similar_to_username(self):
+        data = {
+            'username':'john',
+            'email': 'john@example.com',
+            'password': 'john',
+            'confirm_password': 'john',
+        }
+        response = self.client.post('/api/register/', data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST )
+
+    def test_password_similar_to_email(self):
+        data = {
+            'username' : 'john',
+            'email' : 'john1234@example.com',
+            'password' : 'john1234',
+            'cofirm_password': 'john1234'
+        }
+        response = self.client.post('/api/register/', data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST )
+
+
     def test_login(self):
         User.objects.create_user(username='john', password='StrongPass@123')
         response = self.client.post('/api/login/', {'username': 'john', 'password': 'StrongPass@123'})
